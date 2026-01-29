@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  referee-debate:
+    build: .
+    image: referee-mediated-discourse:latest
+    container_name: referee-debate-experiment
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - ./outputs:/app/outputs
+    command: ["--experiment", "nuclear_energy", "--seed", "42"]
+
+  # Alternative service for good vs evil debate
+  philosophy-debate:
+    build: .
+    image: referee-mediated-discourse:latest
+    container_name: philosophy-debate-experiment
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+    volumes:
+      - ./outputs:/app/outputs
+    command: ["--experiment", "good_vs_evil", "--seed", "42"]
+    profiles:
+      - philosophy
