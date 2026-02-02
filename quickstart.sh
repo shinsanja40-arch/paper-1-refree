@@ -1,7 +1,6 @@
 #!/bin/bash
-
 # Quick Start Script for Referee-Mediated Discourse Experiments
-# This script helps you get started quickly
+# 실험 시작을 위한 빠른 설정 스크립트
 
 set -e
 
@@ -10,16 +9,15 @@ echo "Referee-Mediated Discourse - Quick Start"
 echo "=================================================="
 echo ""
 
-# Check if Python is installed
+# ── Python 확인 ──────────────────────────────────────────────────────
 if ! command -v python3 &> /dev/null; then
     echo "❌ Python 3 is not installed. Please install Python 3.10 or higher."
     exit 1
 fi
-
 echo "✅ Python found: $(python3 --version)"
 echo ""
 
-# Check if virtual environment exists
+# ── 가상환경 ─────────────────────────────────────────────────────────
 if [ ! -d "venv" ]; then
     echo "📦 Creating virtual environment..."
     python3 -m venv venv
@@ -38,10 +36,10 @@ pip install -q --upgrade pip
 pip install -q -r requirements.txt
 echo "✅ Dependencies installed"
 
+# ── API 키 확인 ───────────────────────────────────────────────────────
 echo ""
 echo "🔑 Checking API keys..."
 
-# Check for .env file
 if [ ! -f ".env" ]; then
     echo "⚠️  No .env file found. Creating from template..."
     cp .env.example .env
@@ -55,21 +53,22 @@ if [ ! -f ".env" ]; then
     exit 0
 fi
 
-# Load environment variables
-export $(cat .env | grep -v '^#' | xargs)
+# .env에서 환경변수 로드
+# set -a : 이후 source된 변수를 자동으로 export
+# xargs 방식은 키 값에 공백·특수문자가 포함되면 word-splitting으로 오작동.
+set -a
+source .env
+set +a
 
-# Check if keys are set
 missing_keys=0
 if [ -z "$ANTHROPIC_API_KEY" ] || [ "$ANTHROPIC_API_KEY" = "your_anthropic_api_key_here" ]; then
     echo "❌ ANTHROPIC_API_KEY not set in .env"
     missing_keys=1
 fi
-
 if [ -z "$OPENAI_API_KEY" ] || [ "$OPENAI_API_KEY" = "your_openai_api_key_here" ]; then
     echo "❌ OPENAI_API_KEY not set in .env"
     missing_keys=1
 fi
-
 if [ -z "$GOOGLE_API_KEY" ] || [ "$GOOGLE_API_KEY" = "your_google_api_key_here" ]; then
     echo "❌ GOOGLE_API_KEY not set in .env"
     missing_keys=1
@@ -84,33 +83,46 @@ fi
 echo "✅ All API keys configured"
 echo ""
 
-# Create outputs directory
+# ── outputs/ 폴더 생성 (현재 사용자 소유로) ───────────────────────────
+# Docker 볼륨 마운트 시 root 소유 폴더가 생기지 않도록 사전 생성합니다.
 mkdir -p outputs
+echo "✅ outputs/ directory ready"
 
+# ── 실험 선택 및 실행 ─────────────────────────────────────────────────
+echo ""
 echo "=================================================="
 echo "🚀 Ready to run experiments!"
 echo "=================================================="
 echo ""
 echo "Available experiments:"
-echo "  1. Nuclear Energy Debate"
-echo "  2. Good vs Evil Philosophical Debate"
+echo "  1. Nuclear Energy Debate (4명 토론자)"
+echo "  2. Good vs Evil Philosophical Debate (4명 토론자)"
+echo "  3. Nuclear Energy — 6명 토론자 (확장)"
 echo ""
-echo "Choose an experiment (1 or 2): "
+echo "Choose an experiment (1, 2, or 3): "
 read -r choice
 
 case $choice in
     1)
         echo ""
-        echo "🔬 Running Nuclear Energy Debate..."
-        python referee_mediated_discourse.py --experiment nuclear_energy --seed 42
+        echo "🔬 Running Nuclear Energy Debate (4 debaters)..."
+        python3 referee_mediated_discourse.py \
+            --experiment nuclear_energy --debaters 4 --seed 42
         ;;
     2)
         echo ""
-        echo "🔬 Running Good vs Evil Debate..."
-        python referee_mediated_discourse.py --experiment good_vs_evil --seed 42
+        echo "🔬 Running Good vs Evil Debate (4 debaters)..."
+        python3 referee_mediated_discourse.py \
+            --experiment good_vs_evil --debaters 4 --seed 42
+        ;;
+    3)
+        echo ""
+        echo "🔬 Running Nuclear Energy Debate (6 debaters)..."
+        python3 referee_mediated_discourse.py \
+            --experiment nuclear_energy --debaters 6 --seed 42
         ;;
     *)
-        echo "Invalid choice. Please run the script again and choose 1 or 2."
+        echo "Invalid choice. Please run the script again and choose 1, 2, or 3."
         exit 1
         ;;
 esac
@@ -122,9 +134,9 @@ echo "=================================================="
 echo ""
 echo "📁 Results are saved in the outputs/ directory"
 echo ""
-echo "To run another experiment, execute:"
-echo "  python referee_mediated_discourse.py --experiment [nuclear_energy|good_vs_evil] --seed 42"
+echo "To run another experiment manually:"
+echo "  python3 referee_mediated_discourse.py --experiment [nuclear_energy|good_vs_evil] --debaters 4 --seed 42"
 echo ""
-echo "To deactivate the virtual environment, run:"
+echo "To deactivate the virtual environment:"
 echo "  deactivate"
 echo ""

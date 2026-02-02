@@ -1,328 +1,185 @@
 # Referee-Mediated Discourse: Reproducible Experimental Protocol
 
-Complete implementation of the multi-agent debate framework with real-time hallucination detection and correction as described in "Breaking the Data Wall: High-Fidelity Knowledge Synthesis and Self-Evolving AI via Referee-Mediated Discourse".
+Multi-agent debate framework with real-time hallucination detection and correction.
 
 ## 🎯 Overview
 
-This implementation provides a **fully reproducible** experimental protocol for:
-
-- Multi-agent adversarial debates
-- Real-time hallucination detection via independent referee
-- Turn-by-turn error correction
-- Comprehensive logging and evaluation
+- Multi-agent adversarial debates (4명 이상의 토론자)
+- Real-time hallucination detection via independent referee (Gemini)
+- Turn-by-turn error correction with per-turn timeout enforcement
+- Comprehensive logging and ML-ready evaluation output
 - Standardized metrics calculation
 
 ## 📋 Prerequisites
 
-- Python 3.10 or higher
-- API keys for:
-  - Anthropic (Claude)
-  - OpenAI (GPT-4)
-  - Google (Gemini)
+- Python 3.10+
+- API keys: Anthropic (Claude), OpenAI (GPT-4o), Google (Gemini)
 
 ## 🚀 Quick Start
 
 ### 1. Installation
 
 ```bash
-# Clone or download this repository
 git clone <repository-url>
 cd referee-mediated-discourse
-
-# Install dependencies
 pip install -r requirements.txt
 ```
 
 ### 2. Configure API Keys
 
 ```bash
-# Copy the example environment file
 cp .env.example .env
-
-# Edit .env and add your API keys
-# ANTHROPIC_API_KEY=sk-ant-...
-# OPENAI_API_KEY=sk-...
-# GOOGLE_API_KEY=...
+# .env를 열어 실제 API 키 입력
 ```
 
-Or set environment variables directly:
+Or export directly:
 
 ```bash
-export ANTHROPIC_API_KEY="your-key-here"
-export OPENAI_API_KEY="your-key-here"
-export GOOGLE_API_KEY="your-key-here"
+export ANTHROPIC_API_KEY="sk-ant-..."
+export OPENAI_API_KEY="sk-..."
+export GOOGLE_API_KEY="AIza..."
 ```
 
 ### 3. Run Experiments
 
-**Nuclear Energy Debate:**
 ```bash
-python referee_mediated_discourse.py --experiment nuclear_energy --seed 42
+# 원자력 토론 (4명 토론자, 기본값)
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
+
+# 철학 토론
+python referee_mediated_discourse.py --experiment good_vs_evil --debaters 4 --seed 42
+
+# 6명 토론자 확장 실험
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 6 --seed 42
+
+# 사용자 정의 출력 디렉토리
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42 --output-dir ./my_results
 ```
 
-**Good vs Evil Philosophical Debate:**
+### 4. Docker
+
 ```bash
-python referee_mediated_discourse.py --experiment good_vs_evil --seed 42
+# 기본 실험 실행 (ENTRYPOINT에 --debaters 4 포함)
+docker build -t referee-debate .
+docker run \
+  -e ANTHROPIC_API_KEY="..." \
+  -e OPENAI_API_KEY="..." \
+  -e GOOGLE_API_KEY="..." \
+  -v $(pwd)/outputs:/app/outputs \
+  referee-debate \
+  --experiment nuclear_energy --seed 42
+
+# Docker Compose
+mkdir -p outputs   # 볼륨 마운트 전에 호스트 폴더 생성 필요
+docker compose up referee-debate
+
+# 철학 토론
+docker compose --profile philosophy up philosophy-debate
+
+# 6명 토론자
+docker compose --profile extended up six-debaters
 ```
 
 ## 📊 Output Structure
 
-Each experiment creates a timestamped output directory:
-
 ```
 outputs/
-└── nuclear_energy_2025-01-29T10-30-45/
-    ├── config.json                      # Complete experiment configuration
-    ├── full_transcript.json             # Every turn with metadata
-    ├── hallucination_annotations.json   # Detected hallucinations
-    ├── metrics.json                     # Quantitative results
-    └── REPORT.md                        # Human-readable summary
+└── nuclear_energy_4d_2025-01-29T10-30-45/
+    ├── config.json                      # 실험 설정 전체
+    ├── full_transcript.json             # 턴별 대화 로그
+    ├── referee_decisions.json           # 심판 판결 이력
+    ├── hallucination_annotations.json   # 환각 탐지 결과
+    └── metrics.json                     # 정량 지표
 ```
 
-### config.json
-Contains all experimental parameters for exact reproduction:
-- Agent configurations (model, temperature, prompts)
-- Debate parameters (max turns, deadlock threshold)
-- Random seed
-- Timestamps
-
-### full_transcript.json
-Complete debate log including:
-- Turn-by-turn content
-- Agent metadata (model, role, persona)
-- Timing information (latency per turn)
-- Token usage
-
-### hallucination_annotations.json
-Referee's evaluations:
-- Claim identification
-- Hallucination classification (factual_error, unverifiable, misleading, correct)
-- Evidence sources
-- Severity ratings
-
-### metrics.json
-Quantitative results:
-- Total turns
-- Hallucination rate
-- Correction rate
-- Error type breakdown
-
-## 🔬 Experimental Design
-
-### Architecture
+## 🔬 Architecture
 
 ```
 ┌─────────────┐         ┌─────────────┐
-│  Agent A    │◄───────►│  Agent B    │
-│  (Claude)   │         │  (GPT-4)    │
+│  Debater 1  │◄───────►│  Debater 2  │
+│  (Claude)   │         │  (GPT-4o)   │
 └──────┬──────┘         └──────┬──────┘
        │                       │
-       │    ┌─────────────┐   │
-       └───►│  Referee    │◄──┘
-            │  (Gemini)   │
-            └─────────────┘
-                  │
-                  ▼
-            Fact-checking
-            via Web Search
+┌──────┴──────┐         ┌──────┴──────┐
+│  Debater 3  │         │  Debater 4  │
+│  (Claude)   │         │  (GPT-4o)   │
+└──────┬──────┘         └──────┬──────┘
+       │         ┌─────────────┘
+       └────────►│   Referee   │  ← stateless, per-turn timeout
+                 │  (Gemini)   │
+                 └─────────────┘
 ```
 
-### Process Flow
+**토론 흐름:**
+1. 각 토론자가 라운드별로 차례 발언 (동료 발언 포함)
+2. 심판이 라운드 종료 후 모든 발언을 사실 검증
+3. 교착 탐지(Jaccard 유사도) → 반복 시 자동 종료
+4. 각 호출에 스레드 타임아웃 적용 → 무한 대기 방지
 
-1. **Agent A** makes opening statement
-2. **Referee** fact-checks Agent A's claims
-3. **Agent B** responds with counter-argument
-4. **Referee** fact-checks Agent B's claims
-5. Repeat until max turns or deadlock detected
-6. **Evaluation** extracts hallucination metrics
-
-### Key Features
-
-- **Turn-by-turn isolation**: Each claim is verified before the next turn
-- **Real-time grounding**: Referee uses web search for fact verification
-- **Heterogeneous models**: Different AI providers prevent model-specific bias
-- **Deadlock detection**: Identifies circular reasoning automatically
-- **Complete logging**: Every interaction is recorded for analysis
-
-## 📈 Metrics Calculated
+## 📈 Metrics
 
 | Metric | Description |
 |--------|-------------|
-| Hallucination Rate | % of turns containing factual errors |
-| Correction Rate | % of hallucinations caught by referee |
-| Factual Errors | Count of provably false claims |
-| Unverifiable Claims | Count of claims without sources |
-| Misleading Claims | Count of technically true but deceptive statements |
+| hallucination_rate | 토론자 턴 중 환각 포함 비율 |
+| correction_rate | 탐지된 환각 중 수정 제공 비율 |
+| factual_errors | 사실 오류 건수 |
+| unverifiable_claims | 검증 불가 주장 건수 |
+| misleading_claims | 오도적 주장 건수 |
 
-## 🔄 Reproducibility Guarantees
-
-This implementation ensures reproducibility through:
-
-1. **Fixed random seeds**: Control stochastic behavior
-2. **Versioned dependencies**: requirements.txt pins exact versions
-3. **Complete configuration logging**: Every parameter is recorded
-4. **Timestamped outputs**: No data overwrites
-5. **Model version specification**: Exact model strings (e.g., "gpt-4o", "claude-3-5-sonnet-20241022")
-
-### Reproducing Published Results
-
-To reproduce a specific experiment:
+## 🔄 Reproducibility
 
 ```bash
-# Use the same seed and configuration
-python referee_mediated_discourse.py \
-    --experiment nuclear_energy \
-    --seed 42
+# 동일한 seed로 재실행하면 동일한 실험 구성
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
 ```
 
-Compare your `metrics.json` with published results.
+- Fixed random seeds
+- Pinned dependencies (requirements.txt)
+- Complete config logging per run
+- Timestamped outputs (덮어쓰기 없음)
 
 ## 🛠️ Customization
 
-### Adding New Experiments
-
-1. Add system prompts to `SYSTEM_PROMPTS` dictionary
-2. Create new `ExperimentConfig` in `_get_experiment_config()`
-3. Add initial prompt in `run_debate()` method
-
-Example:
+### 새로운 실험 추가
 
 ```python
-# In SYSTEM_PROMPTS
-SYSTEM_PROMPTS["debater_climate_skeptic"] = """
-You are a climate change skeptic presenting evidence-based arguments...
-"""
-
-# In _get_experiment_config()
-configs["climate_debate"] = ExperimentConfig(
-    experiment_id=f"climate_debate_{self.timestamp}",
-    topic="Climate Change: Urgency and Solutions",
-    # ... rest of configuration
-)
+# 1. _create_balanced_debaters() 내 topic_a / topic_b 조정
+# 2. main()의 --experiment choices에 추가
+# 3. 초기 프롬프트 조정
 ```
 
-### Modifying Agent Models
+### 토론자 수 조정
 
-Edit the `AgentConfig` objects:
-
-```python
-agent_a=AgentConfig(
-    name="Your Agent Name",
-    role=AgentRole.DEBATER_A,
-    model="claude-3-opus-20240229",  # Different Claude model
-    temperature=0.5,                  # Lower temperature
-    max_tokens=2000,                  # More tokens
-    # ...
-)
-```
-
-### Adjusting Debate Parameters
-
-```python
-ExperimentConfig(
-    max_turns=20,              # Longer debate
-    deadlock_threshold=5,      # More tolerant of repetition
-    # ...
-)
-```
-
-## 🐛 Troubleshooting
-
-### API Key Errors
-
-```
-ValueError: ANTHROPIC_API_KEY environment variable not set
-```
-
-**Solution**: Ensure environment variables are set:
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+# 반드시 >= 4 이고 짝수여야 함
+--debaters 4   # 기본: Strong A, Moderate A, Strong B, Moderate B
+--debaters 6   # 확장: Neutral x2 추가
+--debaters 8   # 각 스턴스 x2
 ```
 
-### Rate Limiting
+## 🛠 Troubleshooting
 
-If you hit API rate limits:
-1. Reduce `max_turns` in experiment config
-2. Add delays between turns
-3. Use lower-tier models for testing
-
-### Import Errors
-
-```
-ModuleNotFoundError: No module named 'anthropic'
-```
-
-**Solution**: Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-## 📊 Example Results
-
-**Nuclear Energy Debate (10 turns, seed 42)**
-
-```json
-{
-  "total_turns": 20,
-  "debater_turns": 10,
-  "referee_interventions": 10,
-  "hallucination_rate": 0.02,
-  "correction_rate": 0.98,
-  "factual_errors": 0,
-  "unverifiable_claims": 2,
-  "misleading_claims": 0
-}
-```
-
-## 🔐 Security Notes
-
-- **Never commit API keys** to version control
-- Use `.gitignore` to exclude `.env` files
-- Rotate keys regularly
-- Monitor API usage for unexpected costs
+| 증상 | 해결 |
+|------|------|
+| `ValueError: ...API_KEY not set` | `.env` 파일 또는 환경변수 확인 |
+| `Permission Denied` (Docker) | `mkdir -p outputs` 후 재실행 |
+| Rate limit exceeded | `--debaters 4`로 줄이거나 잠시 대기 |
+| `ModuleNotFoundError` | `pip install -r requirements.txt` |
+| 무한 대기 | turn_timeout(60s)이 적용됨 — 자동 복구 |
 
 ## 📝 Citation
 
-If you use this code in your research, please cite:
-
 ```bibtex
 @article{referee_mediated_discourse_2025,
-  title={Breaking the Data Wall: High-Fidelity Knowledge Synthesis and Self-Evolving AI via Referee-Mediated Discourse},
+  title={Breaking the Data Wall: High-Fidelity Knowledge Synthesis
+         and Self-Evolving AI via Referee-Mediated Discourse},
   author={[Authors]},
   year={2025}
 }
 ```
 
-## 🤝 Contributing
-
-Contributions are welcome! Areas for improvement:
-
-- [ ] More sophisticated hallucination detection
-- [ ] Multi-referee consensus mechanisms
-- [ ] Automated human intervention simulation
-- [ ] Visualization dashboards
-- [ ] Additional evaluation metrics
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 💬 Support
-
-For issues or questions:
-- Open a GitHub issue
-- Check existing issues for solutions
-- Review the troubleshooting section
-
-## 🔗 Related Work
-
-- Multi-Agent Debate (MAD)
-- Constitutional AI
-- RLHF (Reinforcement Learning from Human Feedback)
-- Self-Refine
-
 ## 📚 Further Reading
 
-- [Anthropic Claude Documentation](https://docs.anthropic.com)
+- [Anthropic Claude Docs](https://docs.anthropic.com)
 - [OpenAI API Reference](https://platform.openai.com/docs)
 - [Google Gemini API Guide](https://ai.google.dev/docs)
