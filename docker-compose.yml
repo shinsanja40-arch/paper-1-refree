@@ -1,62 +1,59 @@
+# ---------------------------------------------------------------------------
+# Docker Compose Configuration for Referee-Mediated Discourse
+# ---------------------------------------------------------------------------
+# Copyright (c) 2026 Cheongwon Choi <ccw1914@naver.com>
+# Licensed under CC BY-NC 4.0
+#   - Personal use allowed. Commercial use prohibited.
+#   - Attribution required.
+# ---------------------------------------------------------------------------
+
 version: '3.8'
 
 services:
-  # ── 원자력 vs 재생에너지 토론 ──────────────────────────────────────
+  # ── 원자력 vs 재생에너지 토론 (4명 토론자) ─────────────────────────────
   referee-debate:
     build: .
     image: referee-mediated-discourse:latest
     container_name: referee-debate-experiment
     restart: on-failure
     env_file:
-      - .env
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - .env  # [FIX-MEDIUM-P2] environment 중복 제거 (Grok 제안)
     volumes:
       # 로컬 outputs/ 폴더가 없으면 Docker가 root로 자동 생성하여
       # 컨테이너 내부 appuser가 쓰기 못합니다.
-      # entrypoint.sh 대신 호스트측 폴더를 사전 생성하거나,
-      # 아래 command에 --output-dir를 컨테이너 내부 경로로 지정합니다.
+      # entrypoint.sh가 컨테이너 시작 시 chown으로 재설정하지만,
+      # 호스트 폴더를 사전 생성하는 것이 안전합니다.
+      #   → mkdir -p outputs  (빌드 전 실행 권장)
       - ./outputs:/app/outputs
-    # ENTRYPOINT에 --debaters 4가 포함되어 있으므로
-    # command에는 --experiment와 --seed만 지정하면 됩니다.
-    command: ["--experiment", "nuclear_energy", "--seed", "42"]
+    # [FIX-CRITICAL-3] Dockerfile의 ENTRYPOINT는 entrypoint.sh만 지정
+    # 모든 실험 파라미터는 command에서 전달
+    command: ["--debaters", "4", "--experiment", "nuclear_energy", "--seed", "42"]
 
-  # ── 철학적 토론: 선 vs 악 ─────────────────────────────────────────
+  # ── 철학적 토론: 선 vs 악 ───────────────────────────────────────────────
   philosophy-debate:
     build: .
     image: referee-mediated-discourse:latest
     container_name: philosophy-debate-experiment
     restart: on-failure
     env_file:
-      - .env
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - .env  # [FIX-MEDIUM-P2] environment 중복 제거 (Grok 제안)
     volumes:
       - ./outputs:/app/outputs
-    command: ["--experiment", "good_vs_evil", "--seed", "42"]
+    command: ["--debaters", "4", "--experiment", "good_vs_evil", "--seed", "42"]
     profiles:
       - philosophy
 
-  # ── 6명 토론자 실험 (확장 예시) ────────────────────────────────────
-  # ENTRYPOINT의 --debaters 4를 덮어쓰려면 entrypoint를 직접 지정해야 합니다.
+  # ── 6명 토론자 실험 ─────────────────────────────────────────────────────
   six-debaters:
     build: .
     image: referee-mediated-discourse:latest
     container_name: six-debaters-experiment
     restart: on-failure
     env_file:
-      - .env
-    environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - .env  # [FIX-MEDIUM-P2] environment 중복 제거 (Grok 제안)
     volumes:
       - ./outputs:/app/outputs
-    entrypoint: ["python", "referee_mediated_discourse.py", "--debaters", "6"]
-    command: ["--experiment", "nuclear_energy", "--seed", "99"]
+    # 6명 토론자는 command에 --debaters 6만 지정하면 됨
+    command: ["--debaters", "6", "--experiment", "nuclear_energy", "--seed", "99"]
     profiles:
       - extended

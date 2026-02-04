@@ -1,5 +1,22 @@
-anthropic>=0.18.1
-openai>=1.12.0
-google-generativeai>=0.3.2
-python-dotenv>=1.0.0
-tiktoken>=0.5.0
+# Referee-Mediated Discourse Framework Dependencies
+# Version 5.3.0 - 2026-02-04
+# [FIX-CRITICAL-P0] Google SDK migration 완료 (Grok, Gemini 제안)
+
+# Anthropic Claude API
+anthropic==0.45.0
+
+# OpenAI GPT API
+openai==1.58.1
+
+# Google Gemini API - 신규 SDK
+# [CRITICAL] google-generativeai (deprecated 2025-11-30) → google-genai
+google-genai>=1.0.0
+
+# 환경 변수 로드
+python-dotenv==1.0.1
+
+# 토큰 카운팅
+tiktoken==0.8.0
+
+# 한국어 형태소 분석기
+kiwipiepy==0.18.0

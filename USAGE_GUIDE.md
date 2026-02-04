@@ -27,6 +27,7 @@ referee-mediated-discourse/
 chmod +x quickstart.sh
 ./quickstart.sh
 # 화면의 지시를 따라 API 키 설정 후 실험 선택 (1, 2, 3)
+# seed 값을 직접 입력하거나 Enter로 기본값(42) 사용
 ```
 
 ### 방법 2: 수동 설치
@@ -56,27 +57,45 @@ mkdir -p outputs
 # 2. 이미지 빌드
 docker build -t referee-debate .
 
-# 3. 실험 실행
-#    ENTRYPOINT에 --debaters 4가 포함되어 있으므로
-#    command에는 --experiment와 --seed만 지정하면 됩니다.
-docker run \
+# 3. 4명 토론자 실험 (중요: 모든 파라미터를 command로 전달)
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
   -e ANTHROPIC_API_KEY="your-key" \
   -e OPENAI_API_KEY="your-key" \
   -e GOOGLE_API_KEY="your-key" \
-  -v $(pwd)/outputs:/app/outputs \
   referee-debate \
-  --experiment nuclear_energy --seed 42
+  --debaters 4 --experiment nuclear_energy --seed 42
 
-# 4. 6명 토론자로 실행하려면 entrypoint를 직접 지정
-docker run \
+# 4. 6명 토론자 실험
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
   -e ANTHROPIC_API_KEY="your-key" \
   -e OPENAI_API_KEY="your-key" \
   -e GOOGLE_API_KEY="your-key" \
-  -v $(pwd)/outputs:/app/outputs \
-  --entrypoint python \
   referee-debate \
-  referee_mediated_discourse.py --experiment nuclear_energy --debaters 6 --seed 42
+  --debaters 6 --experiment nuclear_energy --seed 99
+
+# 5. 사용자 정의 seed로 재현성 테스트
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  -e ANTHROPIC_API_KEY="your-key" \
+  -e OPENAI_API_KEY="your-key" \
+  -e GOOGLE_API_KEY="your-key" \
+  referee-debate \
+  --debaters 4 --experiment good_vs_evil --seed 123
+
+# 6. Docker Compose 사용 (.env 파일 자동 로드)
+mkdir -p outputs
+docker compose up referee-debate
+
+# 철학 토론
+docker compose --profile philosophy up philosophy-debate
+
+# 6명 토론자
+docker compose --profile extended up six-debaters
 ```
+
+**중요**: Docker 실행 시 `--debaters`, `--experiment`, `--seed`는 반드시 command에서 전달해야 합니다.
 
 ## 🔑 API 키 발급 방법
 
@@ -100,7 +119,7 @@ docker run \
 python3 referee_mediated_discourse.py \
   --experiment [nuclear_energy|good_vs_evil] \
   --debaters  [4|6|8|...]          # >= 4, 짝수만 가능
-  --seed      [난수 시드]
+  --seed      [난수 시드]          # 재현성을 위한 시드 값
   --output-dir [출력 디렉토리]      # 기본값: outputs/
 ```
 
@@ -116,6 +135,11 @@ python3 referee_mediated_discourse.py --experiment good_vs_evil --debaters 4 --s
 # 원자력 토론 — 6명 토론자 (Neutral Analyst x2 추가)
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 6 --seed 42
 
+# 재현성 테스트 — 다른 seed로 여러 번 실행
+python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
+python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 123
+python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 999
+
 # 사용자 정의 출력 디렉토리
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42 --output-dir ./my_results
 ```
@@ -127,6 +151,15 @@ python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 -
 | 4 | Strong A, Moderate A, Strong B, Moderate B |
 | 6 | 위 4명 + Neutral Analyst x2 |
 | 8 이상 | 각 스턴스를 균등 배분 |
+
+### --seed 옵션 설명
+
+- **목적**: 실험의 완전한 재현성 보장
+- **기본값**: 42
+- **사용 예**:
+  - 동일한 seed → 동일한 토론자 배치 및 초기 상태
+  - 다른 seed → 새로운 실험 조건으로 변동성 테스트
+- **재현성 테스트**: 동일 실험을 서로 다른 seed로 여러 번 실행하여 결과 안정성 확인
 
 ## 📊 출력 파일 설명
 
@@ -154,7 +187,10 @@ outputs/nuclear_energy_4d_2025-01-29T10-30-45/
     "content": "...",
     "tokens_used": 450,
     "latency_ms": 1234.56,
-    "references_turns": [2, 3]
+    "metadata": {
+      "fallback": false,
+      "skip_reason": null
+    }
   }
 ]
 ```
@@ -197,6 +233,7 @@ outputs/nuclear_energy_4d_2025-01-29T10-30-45/
 - [ ] **동일한 모델 버전**: config.json에서 확인
 - [ ] **metrics.json 비교**: hallucination_rate, correction_rate
 - [ ] **full_transcript.json 검토**: 실제 대화 내용 확인
+- [ ] **다중 seed 테스트**: 재현성 검증을 위해 다른 seed로도 실행
 
 ## 🛠️ 커스터마이징
 
@@ -247,10 +284,19 @@ for turn in transcript[:5]:
 ### 여러 실험 비교
 
 ```bash
-# 다른 시드로 3번 실행
+# 다른 시드로 3번 실행하여 재현성 확인
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 123
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 999
+
+# 결과 비교 스크립트 예시
+python3 -c "
+import json, glob
+for path in glob.glob('outputs/nuclear_energy_4d_*/metrics.json'):
+    with open(path) as f:
+        m = json.load(f)
+    print(f'{path}: {m[\"hallucination_rate\"]:.2%}')
+"
 ```
 
 ## ⚠️ 주의사항
@@ -267,6 +313,7 @@ python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 -
 - 모델 업데이트로 인한 미세한 차이 가능
 - 완전히 동일한 결과 보장 불가
 - 통계적으로 유사한 결과 기대
+- 동일 seed로 여러 번 실행 시 결과 비교
 
 ## 🐛 문제 해결
 
@@ -277,6 +324,10 @@ python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 -
 | Rate limit exceeded | 잠시 대기 후 재실행 |
 | 무한 대기 | turn_timeout(60s)이 자동 적용됨 |
 | `--debaters` 에러 | 값이 >= 4 이고 짝수인지 확인 |
+| Docker에서 `--debaters` 무시 | command에서 파라미터 전달 (위 예시 참고) |
+| Gemini JSON 파싱 실패 | 로그 파일에서 상세 오류 확인, 자동 재시도됨 |
+| Gemini 모델 초기화 실패 | API 키 확인, 모델 이름 확인 (gemini-1.5-pro) |
+| FileNotFoundError | output 디렉토리 자동 생성됨, 권한 확인 |
 
 ## ✅ 체크리스트: 논문 제출 전
 
@@ -286,3 +337,15 @@ python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 -
 - [ ] 모든 시스템 프롬프트 공개
 - [ ] Docker 이미지 빌드 및 테스트 완료
 - [ ] LICENSE 파일 추가
+- [ ] 재현성 테스트 (동일 seed + 다른 seed 모두 실행)
+- [ ] 문서에 Docker 실행 방법 정확히 기술
+
+## 📄 라이센스
+
+Copyright (c) 2026 Cheongwon Choi <ccw1914@naver.com>
+
+Licensed under CC BY-NC 4.0:
+- ✅ 개인 사용 허용
+- ❌ 상업적 사용 금지
+- ✅ 저작자 표시 필수
+- 전체 약관: https://creativecommons.org/licenses/by-nc/4.0/

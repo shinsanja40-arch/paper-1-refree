@@ -1,5 +1,7 @@
 # Referee-Mediated Discourse: Reproducible Experimental Protocol
 
+**Version 5.3.0** - Production Ready
+
 Multi-agent debate framework with real-time hallucination detection and correction.
 
 ## 🎯 Overview
@@ -11,6 +13,15 @@ Multi-agent debate framework with real-time hallucination detection and correcti
 - Standardized metrics calculation
 
 ## 📋 Prerequisites
+
+**[v5.3.0 Important]** 이 버전은 **새로운 Google Gemini SDK**(`google-genai`)를 사용합니다.  
+기존 버전에서 업그레이드하는 경우:
+```bash
+pip uninstall google-generativeai
+pip install google-genai
+```
+
+## 📋 System Requirements
 
 - Python 3.10+
 - API keys: Anthropic (Claude), OpenAI (GPT-4o), Google (Gemini)
@@ -59,17 +70,41 @@ python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --
 ### 4. Docker
 
 ```bash
-# 기본 실험 실행 (ENTRYPOINT에 --debaters 4 포함)
-docker build -t referee-debate .
-docker run \
-  -e ANTHROPIC_API_KEY="..." \
-  -e OPENAI_API_KEY="..." \
-  -e GOOGLE_API_KEY="..." \
-  -v $(pwd)/outputs:/app/outputs \
-  referee-debate \
-  --experiment nuclear_energy --seed 42
+# outputs 폴더 사전 생성 (권한 문제 방지)
+mkdir -p outputs
 
-# Docker Compose
+# 이미지 빌드
+docker build -t referee-debate .
+
+# 4명 토론자 실험 (기본)
+# [업데이트] 모든 실험 파라미터를 command로 전달
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -e OPENAI_API_KEY="sk-..." \
+  -e GOOGLE_API_KEY="AIza..." \
+  referee-debate \
+  --debaters 4 --experiment nuclear_energy --seed 42
+
+# 6명 토론자 실험
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -e OPENAI_API_KEY="sk-..." \
+  -e GOOGLE_API_KEY="AIza..." \
+  referee-debate \
+  --debaters 6 --experiment nuclear_energy --seed 99
+
+# 사용자 정의 seed
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -e OPENAI_API_KEY="sk-..." \
+  -e GOOGLE_API_KEY="AIza..." \
+  referee-debate \
+  --debaters 4 --experiment good_vs_evil --seed 123
+
+# Docker Compose 사용
 mkdir -p outputs   # 볼륨 마운트 전에 호스트 폴더 생성 필요
 docker compose up referee-debate
 
@@ -131,6 +166,10 @@ outputs/
 ```bash
 # 동일한 seed로 재실행하면 동일한 실험 구성
 python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
+
+# 다른 seed로 실험하여 재현성 테스트
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 123
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 999
 ```
 
 - Fixed random seeds
@@ -166,15 +205,17 @@ python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --
 | Rate limit exceeded | `--debaters 4`로 줄이거나 잠시 대기 |
 | `ModuleNotFoundError` | `pip install -r requirements.txt` |
 | 무한 대기 | turn_timeout(60s)이 적용됨 — 자동 복구 |
+| Docker: `--debaters` 무시됨 | command에서 파라미터 전달 (위 예시 참고) |
+| Gemini JSON 파싱 오류 | 자동 재시도됨, 로그에서 상세 확인 |
 
 ## 📝 Citation
 
 ```bibtex
-@article{referee_mediated_discourse_2025,
+@article{referee_mediated_discourse_2026,
   title={Breaking the Data Wall: High-Fidelity Knowledge Synthesis
          and Self-Evolving AI via Referee-Mediated Discourse},
-  author={[Authors]},
-  year={2025}
+  author={Cheongwon Choi},
+  year={2026}
 }
 ```
 
@@ -183,3 +224,13 @@ python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --
 - [Anthropic Claude Docs](https://docs.anthropic.com)
 - [OpenAI API Reference](https://platform.openai.com/docs)
 - [Google Gemini API Guide](https://ai.google.dev/docs)
+
+## 📄 License
+
+Copyright (c) 2026 Cheongwon Choi <ccw1914@naver.com>
+
+Licensed under CC BY-NC 4.0:
+- ✅ Personal use allowed
+- ❌ Commercial use prohibited
+- ✅ Attribution required
+- Full terms: https://creativecommons.org/licenses/by-nc/4.0/
