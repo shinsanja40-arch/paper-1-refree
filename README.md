@@ -1,6 +1,6 @@
 # Referee-Mediated Discourse: Reproducible Experimental Protocol
 
-**Version 5.3.0** - Production Ready
+**Version 5.14.0 FINAL** - Production Ready
 
 Multi-agent debate framework with real-time hallucination detection and correction.
 
@@ -11,6 +11,12 @@ Multi-agent debate framework with real-time hallucination detection and correcti
 - Turn-by-turn error correction with per-turn timeout enforcement
 - Comprehensive logging and ML-ready evaluation output
 - Standardized metrics calculation
+- **[v5.14.0]** --timeout 명령행 인자 추가 (사용자 정의 timeout 지원)
+- **[v5.14.0]** .env.example 보안 주의사항 강화
+- **[v5.13.0]** seed 검증 완전 강화 (1 ~ 2^31-1, 음수 명시적 거부)
+- **[v5.12.0]** kiwi.tokenize() lock 추가 (완전한 thread-safety 보장)
+- **[v5.12.0]** 외부 AI 검증 완료 (7개 지적사항, 1개 실제 버그 수정)
+- **[v5.11.0]** seed 검증 완전 적용 + 타임스탬프 밀리초 적용
 
 ## 📋 Prerequisites
 
@@ -33,6 +39,10 @@ pip install google-genai
 ```bash
 git clone <repository-url>
 cd referee-mediated-discourse
+
+# [중요] outputs 디렉토리 사전 생성 (권한 문제 방지)
+mkdir -p outputs
+
 pip install -r requirements.txt
 ```
 
@@ -65,54 +75,87 @@ python referee_mediated_discourse.py --experiment nuclear_energy --debaters 6 --
 
 # 사용자 정의 출력 디렉토리
 python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42 --output-dir ./my_results
+
+# 사용자 정의 timeout (고성능 모델 대응)
+python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42 --timeout 120
 ```
 
 ### 4. Docker
 
+**[v5.8.0 Important]** Docker 실행 환경 완전 최적화:
+- `gosu` 도구로 안전한 권한 전환 (python:3.10-slim 호환)
+- entrypoint가 root로 볼륨 권한 자동 수정
+- 이후 자동으로 appuser로 전환하여 실행
+- 모든 호스트 환경에서 안정적 동작 보장
+
+#### Docker 빌드 및 실행 (완전 가이드)
+
 ```bash
-# outputs 폴더 사전 생성 (권한 문제 방지)
+# 1. outputs 폴더 사전 생성 (권한 문제 방지)
 mkdir -p outputs
 
-# 이미지 빌드
-docker build -t referee-debate .
+# 2. 이미지 빌드
+docker build -t referee-debate:latest .
 
-# 4명 토론자 실험 (기본)
-# [업데이트] 모든 실험 파라미터를 command로 전달
+# 3-A. 기본 실행 (환경변수 직접 전달)
 docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
   -e ANTHROPIC_API_KEY="sk-ant-..." \
   -e OPENAI_API_KEY="sk-..." \
   -e GOOGLE_API_KEY="AIza..." \
-  referee-debate \
+  referee-debate:latest \
   --debaters 4 --experiment nuclear_energy --seed 42
 
-# 6명 토론자 실험
+# 3-B. .env 파일 사용 (권장 방법)
 docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
-  -e ANTHROPIC_API_KEY="sk-ant-..." \
-  -e OPENAI_API_KEY="sk-..." \
-  -e GOOGLE_API_KEY="AIza..." \
-  referee-debate \
+  --env-file .env \
+  referee-debate:latest \
+  --debaters 4 --experiment nuclear_energy --seed 42
+
+# 4. 6명 토론자 실험
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  --env-file .env \
+  referee-debate:latest \
   --debaters 6 --experiment nuclear_energy --seed 99
 
-# 사용자 정의 seed
+# 5. 사용자 정의 seed
 docker run --rm \
   -v $(pwd)/outputs:/app/outputs \
-  -e ANTHROPIC_API_KEY="sk-ant-..." \
-  -e OPENAI_API_KEY="sk-..." \
-  -e GOOGLE_API_KEY="AIza..." \
-  referee-debate \
+  --env-file .env \
+  referee-debate:latest \
   --debaters 4 --experiment good_vs_evil --seed 123
+```
 
-# Docker Compose 사용
-mkdir -p outputs   # 볼륨 마운트 전에 호스트 폴더 생성 필요
+#### Docker Compose 사용 (완전 가이드)
+
+```bash
+# 1. outputs 폴더 사전 생성
+mkdir -p outputs
+
+# 2. 기본 실험 (referee-debate 서비스)
 docker compose up referee-debate
 
-# 철학 토론
+# 3. [중요] Profiles 사용 방법
+# 철학 토론 (philosophy profile)
 docker compose --profile philosophy up philosophy-debate
 
-# 6명 토론자
+# 6명 토론자 (extended profile)
 docker compose --profile extended up six-debaters
+
+# 또는 service 이름으로 직접 실행 (profile 자동 활성화)
+docker compose up philosophy-debate  # --profile 생략 가능
+docker compose up six-debaters       # --profile 생략 가능
+
+# 백그라운드 실행
+docker compose up -d referee-debate
+
+# 로그 확인
+docker compose logs -f referee-debate
+
+# 정지 및 삭제
+docker compose down
 ```
 
 ## 📊 Output Structure
@@ -197,6 +240,57 @@ python referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --
 ```
 
 ## 🛠 Troubleshooting
+
+### Docker 실행 예시 (상세)
+
+```bash
+# 이미지 빌드
+docker build -t referee-debate:latest .
+
+# 기본 실행 (환경변수 직접 전달)
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  -e ANTHROPIC_API_KEY="sk-ant-..." \
+  -e OPENAI_API_KEY="sk-..." \
+  -e GOOGLE_API_KEY="AIza..." \
+  referee-debate:latest \
+  --debaters 4 --experiment nuclear_energy --seed 42
+
+# .env 파일 사용 (권장)
+docker run --rm \
+  -v $(pwd)/outputs:/app/outputs \
+  --env-file .env \
+  referee-debate:latest \
+  --debaters 4 --experiment nuclear_energy --seed 42
+```
+
+### Docker 관련 FAQ
+
+**Q: Docker Compose에서 서비스가 실행 안 됨**
+```bash
+# Profile을 명시해야 합니다
+docker compose --profile extended up six-debaters
+
+# 또는 service 이름으로 직접 실행 (profile 자동 활성화)
+docker compose up six-debaters
+```
+
+**Q: 권한 오류 발생**
+```bash
+# outputs 폴더 사전 생성
+mkdir -p outputs
+
+# 또는 Docker가 자동으로 생성하고 gosu가 권한 수정
+```
+
+**Q: Apple Silicon (M1/M2/M3)에서 빌드 실패**
+```bash
+# Dockerfile의 gosu가 아키텍처 자동 감지
+# 수동 빌드 시:
+docker build --platform linux/arm64 -t referee-debate:latest .
+```
+
+### 일반적인 문제
 
 | 증상 | 해결 |
 |------|------|

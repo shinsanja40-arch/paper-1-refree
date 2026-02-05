@@ -1,0 +1,17 @@
+# API Keys Configuration
+# Copy this file to .env and fill in your actual API keys
+#
+# ⚠️  SECURITY WARNING ⚠️
+# - NEVER commit .env with real API keys to version control
+# - Keep your API keys private and secure
+# - Do NOT share API keys in public repositories
+# - Revoke and regenerate keys if accidentally exposed
+#
+# How to get API keys:
+# - Anthropic: https://console.anthropic.com
+# - OpenAI: https://platform.openai.com
+# - Google: https://ai.google.dev
+
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
+GOOGLE_API_KEY=your_google_api_key_here

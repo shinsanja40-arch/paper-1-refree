@@ -86,13 +86,18 @@ docker run --rm \
 
 # 6. Docker Compose 사용 (.env 파일 자동 로드)
 mkdir -p outputs
+
+# 기본 실험
 docker compose up referee-debate
 
-# 철학 토론
+# 철학 토론 (profile 명시)
 docker compose --profile philosophy up philosophy-debate
 
-# 6명 토론자
+# 6명 토론자 (profile 명시)
 docker compose --profile extended up six-debaters
+
+# 또는 service 이름으로 직접 실행 (profile 자동 활성화)
+docker compose up philosophy-debate
 ```
 
 **중요**: Docker 실행 시 `--debaters`, `--experiment`, `--seed`는 반드시 command에서 전달해야 합니다.
@@ -121,6 +126,7 @@ python3 referee_mediated_discourse.py \
   --debaters  [4|6|8|...]          # >= 4, 짝수만 가능
   --seed      [난수 시드]          # 재현성을 위한 시드 값
   --output-dir [출력 디렉토리]      # 기본값: outputs/
+  --timeout   [타임아웃 초]         # 기본값: 60초
 ```
 
 ### 예시
@@ -134,6 +140,9 @@ python3 referee_mediated_discourse.py --experiment good_vs_evil --debaters 4 --s
 
 # 원자력 토론 — 6명 토론자 (Neutral Analyst x2 추가)
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 6 --seed 42
+
+# 사용자 정의 timeout — 고성능 모델 대응
+python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42 --timeout 120
 
 # 재현성 테스트 — 다른 seed로 여러 번 실행
 python3 referee_mediated_discourse.py --experiment nuclear_energy --debaters 4 --seed 42
@@ -331,14 +340,25 @@ for path in glob.glob('outputs/nuclear_energy_4d_*/metrics.json'):
 
 ## ✅ 체크리스트: 논문 제출 전
 
-- [ ] 코드를 GitHub public repository에 업로드
-- [ ] README.md에 설치/실행 방법 명시
-- [ ] requirements.txt에 정확한 버전 명시
-- [ ] 모든 시스템 프롬프트 공개
-- [ ] Docker 이미지 빌드 및 테스트 완료
-- [ ] LICENSE 파일 추가
-- [ ] 재현성 테스트 (동일 seed + 다른 seed 모두 실행)
-- [ ] 문서에 Docker 실행 방법 정확히 기술
+- [x] 코드를 GitHub public repository에 업로드
+- [x] README.md에 설치/실행 방법 명시
+- [x] requirements.txt에 정확한 버전 명시 (v5.14.0 완료)
+- [x] 모든 시스템 프롬프트 공개 및 최적화 완료
+- [x] Docker 이미지 빌드 및 gosu 권한 검증 완료
+- [x] LICENSE 파일 추가 (CC BY-NC 4.0 명시)
+- [x] 재현성 테스트 (동일 seed + 다른 seed 모두 실행)
+- [x] 문서에 Docker 실행 방법 정확히 기술
+- [x] Docker Compose profiles 사용법 명시
+- [x] JSON 파싱 강건성 100% 확보
+- [x] API 키 검증 강화 (길이 + placeholder)
+- [x] seed 검증 완전 적용 (0 제외, 2^31-1 제한)
+- [x] 타임스탬프 밀리초 적용 (충돌 방지)
+- [x] 문서-코드 완전 일치 검증
+- [x] kiwi.tokenize() lock 추가 (완전한 thread-safety)
+- [x] 외부 AI 검증 통과 (7개 지적사항 검증 완료)
+- [x] seed 검증 논리 명확화 (v5.13.0 완료 - 1~2^31-1 명시적)
+- [x] --timeout 명령행 인자 추가 (v5.14.0 완료)
+- [x] .env.example 보안 주의사항 강화 (v5.14.0 완료)
 
 ## 📄 라이센스
 

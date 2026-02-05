@@ -35,13 +35,21 @@ fi
 
 echo ""
 echo "🔧 Activating virtual environment..."
-source venv/bin/activate
+# [FIX-LOW-NEW] sh 호환성을 위해 . 사용 (source는 bash 전용)
+. venv/bin/activate
 
 echo ""
 echo "📥 Installing dependencies..."
-pip install --upgrade pip
-# [FIX-NEW-CRITICAL-2] requirements.txt 오타 수정 확인
-pip install -r requirements.txt
+pip install --upgrade pip || {
+    echo "❌ Failed to upgrade pip"
+    exit 1
+}
+# [v5.8.0] -q 제거하여 진행 상황 표시 (Grok, Gemini 제안)
+pip install -r requirements.txt || {
+    echo "❌ Failed to install dependencies"
+    echo "Please check your network connection and requirements.txt"
+    exit 1
+}
 echo "✅ Dependencies installed"
 
 # ── API 키 확인 ─────────────────────────────────────────────────────────────
@@ -63,21 +71,32 @@ fi
 
 # .env에서 환경변수 로드
 # set -a : 이후 source된 변수를 자동으로 export
-# xargs 방식은 키 값에 공백·특수문자가 포함되면 word-splitting으로 오작동.
+# [FIX-LOW-NEW] . 사용 (source는 bash 전용이지만 이미 #!/bin/bash로 명시됨)
 set -a
-source .env
+. .env
 set +a
 
 # [FIX-MEDIUM-P2] API 키 검증 강화 (Gemini 제안)
+# [FIX-NEW-MEDIUM] placeholder 패턴 체크 추가
 missing_keys=0
 validate_key() {
     local key_name=$1
     local key_value=$2
     
-    if [ -z "$key_value" ] ||        [ "$key_value" = "your_${key_name,,}_here" ] ||        [ "$key_value" = "" ] ||        [[ "$key_value" =~ ^your_ ]]; then
+    if [ -z "$key_value" ] || \
+       [ "$key_value" = "your_${key_name,,}_here" ] || \
+       [ "$key_value" = "" ] || \
+       [[ "$key_value" =~ ^your_ ]]; then
         echo "❌ $key_name not set properly in .env"
         return 1
     fi
+    
+    # [FIX-NEW-MEDIUM] 키 길이 검증 추가 (최소 20자)
+    if [ ${#key_value} -lt 20 ]; then
+        echo "❌ $key_name appears to be invalid (too short)"
+        return 1
+    fi
+    
     return 0
 }
 
@@ -123,9 +142,15 @@ read -r seed_input
 if [ -z "$seed_input" ]; then
     SEED=42
 else
-    # 숫자 여부 검증
+    # [v5.13.0] 완전한 seed 검증 (1 ~ 2^31-1)
     if ! [[ "$seed_input" =~ ^[0-9]+$ ]]; then
-        echo "⚠️  Invalid seed value '$seed_input'. Using default seed 42."
+        echo "⚠️  Invalid seed (must be positive integer). Using default seed 42."
+        SEED=42
+    elif [ "$seed_input" -lt 1 ]; then
+        echo "⚠️  Seed must be at least 1. Using default seed 42."
+        SEED=42
+    elif [ "$seed_input" -gt 2147483647 ]; then
+        echo "⚠️  Seed too large (max: 2147483647 for 32-bit). Using default seed 42."
         SEED=42
     else
         SEED=$seed_input

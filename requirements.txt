@@ -1,6 +1,6 @@
 # Referee-Mediated Discourse Framework Dependencies
-# Version 5.3.0 - 2026-02-04
-# [FIX-CRITICAL-P0] Google SDK migration 완료 (Grok, Gemini 제안)
+# Version 5.14.0 FINAL - 2026-02-05
+# 완전한 버전 핀닝으로 재현성 보장
 
 # Anthropic Claude API
 anthropic==0.45.0
@@ -9,8 +9,8 @@ anthropic==0.45.0
 openai==1.58.1
 
 # Google Gemini API - 신규 SDK
-# [CRITICAL] google-generativeai (deprecated 2025-11-30) → google-genai
-google-genai>=1.0.0
+# 정확한 버전 핀닝 (breaking change 방지)
+google-genai==1.4.0
 
 # 환경 변수 로드
 python-dotenv==1.0.1
